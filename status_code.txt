@@ -1,0 +1,63 @@
+=============================================================================================================================
+Code |  Constant 	                        |  Reason Phrase                     |  Frasa Alasan
+=============================================================================================================================
+100  |  CONTINUE                            |  Continue                          |  Melanjutkan
+101  |  SWITCHING_PROTOCOLS                 |  Switching Protocols               |  Beralih Protokol
+102  |  PROCESSING                          |  Processing                        |  Pengolahan
+-----------------------------------------------------------------------------------------------------------------------------
+200  |  OK                                  |  OK                                |  OKE
+201  |  CREATED                             |  Created                           |  Dibuat
+202  |  ACCEPTED                            |  Accepted                          |  Diterima
+203  |  NON_AUTHORITATIVE_INFORMATION       |  Non Authoritative Information     |  Informasi Tidak Resmi
+204  |  NO_CONTENT                          |  No Content                        |  Tidak ada isi
+205  |  RESET_CONTENT                       |  Reset Content                     |  Atur Ulang Konten
+206  |  PARTIAL_CONTENT                     |  Partial Content                   |  Konten Parsial
+207  |  MULTI_STATUS                        |  Multi-Status                      |  Multi-Status
+-----------------------------------------------------------------------------------------------------------------------------
+300  |  MULTIPLE_CHOICES                    |  Multiple Choices                  |  Pilihan ganda
+301  |  MOVED_PERMANENTLY                   |  Moved Permanently                 |  Dipindahkan Secara Permanen
+302  |  MOVED_TEMPORARILY                   |  Moved Temporarily                 |  pindah sementara
+303  |  SEE_OTHER                           |  See Other                         |  Lihat Lainnya
+304  |  NOT_MODIFIED                        |  Not Modified                      |  Tidak dimodifikasi
+305  |  USE_PROXY                           |  Use Proxy                         |  Gunakan proxy
+307  |  TEMPORARY_REDIRECT                  |  Temporary Redirect                |  Pengalihan Sementara
+308  |  PERMANENT_REDIRECT                  |  Permanent Redirect                |  Pengalihan Permanen
+-----------------------------------------------------------------------------------------------------------------------------
+400  |  BAD_REQUEST                         |  Bad Request                       |  Permintaan yang buruk
+401  |  UNAUTHORIZED                        |  Unauthorized                      |  Tidak sah
+402  |  PAYMENT_REQUIRED                    |  Payment Required                  |  Pembayaran Diperlukan
+403  |  FORBIDDEN                           |  Forbidden                         |  Terlarang
+404  |  NOT_FOUND                           |  Not Found                         |  Tidak ditemukan
+405  |  METHOD_NOT_ALLOWED                  |  Method Not Allowed                |  Metode Tidak Diizinkan
+406  |  NOT_ACCEPTABLE                      |  Not Acceptable                    |  Tidak dapat diterima
+407  |  PROXY_AUTHENTICATION_REQUIRED       |  Proxy Authentication Required     |  Otentikasi Proksi Diperlukan
+408  |  REQUEST_TIMEOUT                     |  Request Timeout                   |  Permintaan Batas Waktu
+409  |  CONFLICT                            |  Conflict                          |  Konflik
+410  |  GONE                                |  Gone                              |  Hilang
+411  |  LENGTH_REQUIRED                     |  Length Required                   |  Panjang yang Dibutuhkan
+412  |  PRECONDITION_FAILED                 |  Precondition Failed               |  Prasyarat Gagal
+413  |  REQUEST_TOO_LONG                    |  Request Entity Too Large          |  Entitas Permintaan Terlalu Besar
+414  |  REQUEST_URI_TOO_LONG                |  Request-URI Too Long              |  Permintaan-URI Terlalu Panjang
+415  |  UNSUPPORTED_MEDIA_TYPE              |  Unsupported Media Type            |  Jenis Media Tidak Didukung
+416  |  REQUESTED_RANGE_NOT_SATISFIABLE     |  Requested Range Not Satisfiable   |  Rentang yang Diminta Tidak Memuaskan
+417  |  EXPECTATION_FAILED                  |  Expectation Failed                |  Harapan Gagal
+418  |  IM_A_TEAPOT                         |  I'm a teapot                      |  Saya teko
+419  |  INSUFFICIENT_SPACE_ON_RESOURCE      |  Insufficient Space on Resource    |  Ruang yang Tidak Cukup pada Sumber Daya
+420  |  METHOD_FAILURE                      |  Method Failure                    |  Kegagalan Metode
+421  |  MISDIRECTED_REQUEST                 |  Misdirected Request               |  Permintaan Salah Arah
+422  |  UNPROCESSABLE_ENTITY                |  Unprocessable Entity              |  Entitas yang tidak dapat diproses
+423  |  LOCKED                              |  Locked                            |  Terkunci
+424  |  FAILED_DEPENDENCY                   |  Failed Dependency                 |  Ketergantungan yang gagal
+428  |  PRECONDITION_REQUIRED               |  Precondition Required             |  Prasyarat Diperlukan
+429  |  TOO_MANY_REQUESTS                   |  Too Many Requests                 |  Terlalu Banyak Permintaan
+431  |  REQUEST_HEADER_FIELDS_TOO_LARGE     |  Request Header Fields Too Large   |  Bidang Permintaan Header Terlalu Besar
+451  |  UNAVAILABLE_FOR_LEGAL_REASONS       |  Unavailable For Legal Reasons     |  Tidak Tersedia Karena Alasan Hukum
+-----------------------------------------------------------------------------------------------------------------------------
+500  |  INTERNAL_SERVER_ERROR               |  Internal Server Error             |  Kesalahan server dari dalam
+501  |  NOT_IMPLEMENTED                     |  Not Implemented                   |  Tidak Diimplementasikan
+502  |  BAD_GATEWAY                         |  Bad Gateway                       |  Gerbang Buruk
+503  |  SERVICE_UNAVAILABLE                 |  Service Unavailable               |  Layanan tidak tersedia
+504  |  GATEWAY_TIMEOUT                     |  Gateway Timeout                   |  Batas Waktu Gateway
+505  |  HTTP_VERSION_NOT_SUPPORTED          |  HTTP Version Not Supported        |  Versi HTTP Tidak Didukung
+507  |  INSUFFICIENT_STORAGE                |  Insufficient Storage              |  Penyimpanan tidak cukup
+511  |  NETWORK_AUTHENTICATION_REQUIRED     |  Network Authentication Required   |  Otentikasi Jaringan Diperlukan

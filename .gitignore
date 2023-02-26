@@ -1,0 +1,7 @@
+dist/
+node_modules/
+.session/
+storage
+logs/
+notes.*
+.env

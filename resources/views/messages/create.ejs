@@ -1,0 +1,64 @@
+<%- include('../layouts/header') %>
+<div class="row mt-3">
+  <div class="col-12 col-md-6 col-4">
+    <form action="#" method="POST" enctype="multipart/form-data">
+      <!-- Textarea Message Content! -->
+      <div class="w-100 mb-1">
+        <label for="number-phones" class="form-label">Number phones</label>
+        <input
+          class="form-control form-control-sm"
+          placeholder="Enter number phones (,) to sparator"
+          id="number-phones"
+          type="text"
+        />
+      </div>
+      <div class="form-group">
+        <label for="message">Messge Text </label>
+        <textarea
+          class="form-control"
+          id="message"
+          rows="3"
+          placeholder="Enter your message here..."
+        ></textarea>
+      </div>
+      <div class="form-group">
+        <div class="d-flex mt-2">
+          <button class="btn btn-primary flex-grow-1 mx-1 rounded-3">
+            Button 1
+          </button>
+          <button class="btn btn-primary flex-grow-1 mx-1 rounded-3">
+            Button 2
+          </button>
+          <button class="btn btn-primary flex-grow-1 mx-1 rounded-3">
+            Button 3
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+<%- include('../layouts/footer-t') %>
+<script>
+  const textareaMsg = document.getElementById("message");
+  // insert string to textarea at caret position
+  function insertToTextarea(str, caretPosition) {
+    textareaMsg.value =
+      textareaMsg.value.substring(0, caretPosition) +
+      str +
+      textareaMsg.value.substring(caretPosition);
+    textareaMsg.focus();
+    textareaMsg.setSelectionRange(
+      caretPosition + str.length,
+      caretPosition + str.length
+    );
+  }
+
+  $("#message").on("keyup", function () {
+    var value = $(this).val();
+    const lastChar = value.slice(-1);
+    if (lastChar === "[") {
+    }
+    $("#message-count").text(value.length);
+  });
+</script>
+<%- include('../layouts/footer-b') %>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bootstrap demo</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor"
+      crossorigin="anonymous"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <div class="row justify-content-center align-items-center vh-100">
+        <div class="col-12 col-md-8">
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">Card title</h5>
+
+              <textarea id="message" rows="10" class="form-control"></textarea>
+              <div
+                contenteditable="true"
+                class="form-control p-2 my-4"
+                style="height: 400px"
+                spellcheck="false"
+                id="editor"
+              >
+                This text can be <b>*edited*</b>
+                <br />
+                by the user.
+              </div>
+
+              <a href="#" class="btn btn-primary">Go somewhere</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-pprn3073KE6tl6bjs2QrFaJGz5/SUsLqktiwsUTF55Jfv3qYSDhgCecCxMW52nD2"
+      crossorigin="anonymous"
+    ></script>
+
+    <script>
+      const editor = document.getElementById("editor");
+      const message = document.getElementById("message");
+      function insertToTextarea(str, caretPosition) {
+        textareaMsg.value =
+          textareaMsg.value.substring(0, caretPosition) +
+          str +
+          textareaMsg.value.substring(caretPosition);
+        textareaMsg.focus();
+        textareaMsg.setSelectionRange(
+          caretPosition + str.length,
+          caretPosition + str.length
+        );
+      }
+
+      function insertToEdittableDIV(str, caretPosition) {
+        editor.innerHTML =
+          editor.innerHTML.substring(0, caretPosition) +
+          str +
+          editor.innerHTML.substring(caretPosition);
+        editor.focus();
+        editor.setSelectionRange(
+          caretPosition + str.length,
+          caretPosition + str.length
+        );
+      }
+
+      function getCaretPosition(editableDiv = editor) {
+        var caretPos = 0,
+          sel,
+          range;
+        if (window.getSelection) {
+          sel = window.getSelection();
+          if (sel.rangeCount) {
+            range = sel.getRangeAt(0);
+            if (range.commonAncestorContainer.parentNode == editableDiv) {
+              caretPos = range.endOffset;
+            }
+          }
+        } else if (document.selection && document.selection.createRange) {
+          range = document.selection.createRange();
+          if (range.parentElement() == editableDiv) {
+            var tempEl = document.createElement("span");
+            editableDiv.insertBefore(tempEl, editableDiv.firstChild);
+            var tempRange = range.duplicate();
+            tempRange.moveToElementText(tempEl);
+            tempRange.setEndPoint("EndToEnd", range);
+            caretPos = tempRange.text.length;
+          }
+        }
+        return caretPos;
+      }
+
+      // format bold, italic, underline whatsapp to HTML
+      function whatsappFormatToHTML(str) {
+        let formattedStr = str;
+        // Bold
+        formattedStr = formattedStr.replace(/\*(.*?)\*/g, "<b>*$1*</b>");
+        // Italic
+        formattedStr = formattedStr.replace(/\_(.*?)\_/g, "<i>_$1_</i>");
+        // Strikethrough
+        formattedStr = formattedStr.replace(/\~(.*?)\~/g, "<del>~$1~</del>");
+
+        return formattedStr.replace(/(?:\r\n|\r|\n)/g, "<br>");
+      }
+
+      function HTMLtoFormatWhatsapp(html) {
+        let formattedStr = html;
+        if (formattedStr === "") {
+          return "";
+        }
+        // Bold
+        formattedStr = formattedStr.replace(/<b>(.*?)<\/b>/g, "$1");
+        // Italic
+        formattedStr = formattedStr.replace(/<i>(.*?)<\/i>/g, "$1");
+        // Strikethrough
+        formattedStr = formattedStr.replace(/<del>(.*?)<\/del>/g, "$1");
+        return formattedStr;
+      }
+
+      message.addEventListener("keyup", function (e) {
+        const htmlFormatWA = whatsappFormatToHTML(message.value);
+        editor.innerHTML = htmlFormatWA;
+      });
+
+      // remove element when if content null
+      function cleanHtml(html) {
+        return html.replace(/<\/?[^>]+(>|$)/g, "");
+      }
+
+      editor.addEventListener("input", function (e) {
+        //get current cursor position
+        if (
+          e.inputType !== "insertParagraph" &&
+          e.inputType !== "deleteContentBackward"
+        ) {
+          console.log(e.inputType);
+          let sel = window.getSelection();
+          let node = sel.focusNode;
+          let offset = sel.focusOffset;
+          let pos = getCursorPosition(editor, node, offset, {
+            pos: 0,
+            done: false,
+          });
+
+          let text = editor.innerText;
+          if (e.data == "[") {
+            text += "]";
+          }
+
+          editor.innerHTML = whatsappFormatToHTML(text);
+
+          // restore the position
+          sel.removeAllRanges();
+          let range = setCursorPosition(editor, document.createRange(), {
+            pos: pos.pos,
+            done: false,
+          });
+          range.collapse(true);
+          sel.addRange(range);
+        }
+      });
+
+      // get the cursor position from .editor start
+      function getCursorPosition(parent, node, offset, stat) {
+        if (stat.done) return stat;
+
+        let currentNode = null;
+        if (parent.childNodes.length == 0) {
+          stat.pos += parent.textContent.length;
+        } else {
+          for (var i = 0; i < parent.childNodes.length && !stat.done; i++) {
+            currentNode = parent.childNodes[i];
+            if (currentNode === node) {
+              stat.pos += offset;
+              stat.done = true;
+              return stat;
+            } else getCursorPosition(currentNode, node, offset, stat);
+          }
+        }
+        return stat;
+      }
+
+      //find the child node and relative position and set it on range
+      function setCursorPosition(parent, range, stat) {
+        if (stat.done) return range;
+
+        if (parent.childNodes.length == 0) {
+          if (parent.textContent.length >= stat.pos) {
+            range.setStart(parent, stat.pos);
+            stat.done = true;
+          } else {
+            stat.pos = stat.pos - parent.textContent.length;
+          }
+        } else {
+          for (var i = 0; i < parent.childNodes.length && !stat.done; i++) {
+            currentNode = parent.childNodes[i];
+            setCursorPosition(currentNode, range, stat);
+          }
+        }
+        return range;
+      }
+    </script>
+  </body>
+</html>
