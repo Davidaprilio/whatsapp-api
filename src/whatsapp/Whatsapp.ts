@@ -15,9 +15,14 @@ import makeWASocket, {
     ConnectionState,
     Browsers,
     useMultiFileAuthState,
+    WAMessage,
+    MessageUpsertType,
+    proto,
+    isJidGroup,
+    PresenceData
 } from "@adiwajshing/baileys";
 
-import { convertToJID, log, jidGetPhone, jidToNumberPhone } from "./helper";
+import { convertToJID, log, jidToNumberPhone } from "./helper";
 
 import event from "./event";
 
@@ -28,12 +33,25 @@ type ClientStatus =
     | "scan QR"
     | "connected";
 
+type MessageUpsert = {
+    messages: WAMessage[], 
+    type: MessageUpsertType
+}
+
+type PresenceUpdate = { 
+    id: string, 
+    presences: { 
+        [participant: string]: PresenceData
+    } 
+}
+
 interface CallableFunctions {
     onStoped: Function,
     onDisconnected: Function,
     onConnecting: Function,
     onScanQR: Function,
     onConnected: Function,
+    onIncomingMessage: Function,
 }
 
 interface ClientInfo {
@@ -70,6 +88,7 @@ export default class Whatsapp {
         onConnecting: () => {},
         onStoped: () => {},
         onScanQR: () => {},
+        onIncomingMessage: () => {},
     }
 
     constructor(
@@ -132,31 +151,37 @@ export default class Whatsapp {
         /* ---Set Event If Already Connect--- */
 
         // Pesan masuk
-        this.sock.ev.on("messages.upsert", async ({ messages, type }: any) => {
+        this.sock.ev.on("messages.upsert", async ({ messages, type }: MessageUpsert) => {
+            // notify => notify the user, this message was just received
+            // append => append the message to the chat history, no notification required
             if (type === "append" || type === "notify") {
-                messages = messages[0];
-                const { pushName, messageTimestamp, key } = messages,
-                    messageID = key?.id,
-                    jid = key?.remoteJid;
-                const phone = jidGetPhone(jid);
-
-                if (messages.fromMe) {
-                    // Outgoing Messages
-                    event.emit("message.out", this.info.id, {
-                        messageID,
-                        timestamp: messageTimestamp,
-                    });
-                } else {
-                    // Incomming Messages
-                    event.emit("message.in", this.info.id, {
-                        messageID,
-                        jid,
-                        pushName,
-                        phone,
-                        text: messages?.message?.conversation,
-                        timestamp: messageTimestamp,
-                    });
-                }
+                messages.forEach(msg => {
+                    const { pushName, messageTimestamp, key, message } = msg;
+                    const { id: messageID, remoteJid: jid } = key
+                    const phone = jidToNumberPhone(jid || '');
+                    
+                    if (key.fromMe) {
+                        // Outgoing Messages
+                        console.log('Outgoing Message', msg);
+                        event.emit("message.out", this.info.id, {
+                            messageID,
+                            timestamp: messageTimestamp,
+                        });
+                    } else {
+                        console.log('Incoming Message', msg);
+                        const isGroup = isJidGroup(jid || undefined) || false;
+                        this.incomingMessage(msg, isGroup, key.fromMe || false, jid || null, messageID || null)
+                        // Incomming Messages
+                        event.emit("message.in", this.info.id, {
+                            messageID,
+                            jid,
+                            pushName,
+                            phone,
+                            text: message?.conversation,
+                            timestamp: messageTimestamp,
+                        });
+                    }
+                })
             } else {
                 console.log("Incoming Message unknown Type: ", type, messages);
             }
@@ -169,7 +194,7 @@ export default class Whatsapp {
         });
 
         // State Update Online|Offline
-        this.sock.ev.on("presence.update", (m: any) => log("presence:", m));
+        this.sock.ev.on("presence.update", (presence: PresenceUpdate) => this.presenceUpdated(presence));
         // this.sock.ev.on("chats.update", (m: any) => log(m));
         // this.sock.ev.on("contacts.update", (m: any) => log(m));
 
@@ -193,6 +218,17 @@ export default class Whatsapp {
 
         return this.sock;
     };
+
+    incomingMessage(message: proto.IWebMessageInfo, isGroup: boolean, isFromMe: boolean, jid: string|null, messageID: string|null) {
+        this.emitCallback(
+            this.callableFunctions.onIncomingMessage,
+            message,
+            isGroup,
+            isFromMe,
+            jid,
+            messageID
+        )        
+    }
 
     /**
      * Membuat Sock Client
@@ -349,7 +385,7 @@ export default class Whatsapp {
 
 
 
-    // Connection Update Handle
+    // Event Handler
     private socketConnected() {
         log("Connection Open");
         this.attemptQRcode = 0;
@@ -413,7 +449,11 @@ export default class Whatsapp {
         event.emit('connection.disconnected', reasonInfo)
         this.emitCallback(this.callableFunctions.onDisconnected, reasonInfo)
     }
-    // END: Connection Update Handle
+
+    private presenceUpdated(presence: PresenceUpdate) {
+        event.emit('presence.update', presence)
+    }
+    // END: Event Handler
 
 
     /**
@@ -473,6 +513,9 @@ export default class Whatsapp {
     onDisconnected(callback: Function) {
         this.callableFunctions.onDisconnected = callback
     }
+    onIncomingMessage(callback: Function) {
+        this.callableFunctions.onIncomingMessage = callback
+    }
     // END: Register Callable Event Function
 
     // dummy
@@ -487,7 +530,7 @@ export default class Whatsapp {
     sendMessageWithTyping = async (
         jid: string,
         msg: AnyMessageContent,
-        // replayMsgId?: string,
+        replayMsgId?: string,
         msTimeTyping?: number
     ) => {
         await this.sock.presenceSubscribe(jid);
@@ -497,12 +540,13 @@ export default class Whatsapp {
         await delay(msTimeTyping ?? 250); //ms
 
         await this.sock.sendPresenceUpdate("paused", jid);
-        // const msgId = replayMsgId == null ? null : { quoted: replayMsgId };
+        const quotedMsg = replayMsgId ? { quoted: replayMsgId } : replayMsgId;
         try {
-            return await this.sock.sendMessage(jid, msg);
+            console.log(quotedMsg);
+            return await this.sock.sendMessage(jid, msg, quotedMsg);
         } catch (error) {
             const err = (error as Boom)?.output;
-            console.error("Send message", err?.payload ?? err);
+            console.error("Send message", error, err?.payload ?? err);
             return {
                 status: false,
                 error: true,

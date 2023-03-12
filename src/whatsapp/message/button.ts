@@ -1,11 +1,5 @@
-import { Button, MessagePayload, NullableString } from "./"
-
-type MessageButtonPayload = {
-	text: string,
-	footer: NullableString,
-	buttons: Button[],
-	headerType: number
-}
+import { NullableString } from "./"
+import { MessagePayload, MessageButtonPayload } from "./messagePayload"
 
 export default class MessageButton implements MessagePayload {
 	private payload: MessageButtonPayload = {

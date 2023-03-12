@@ -1,6 +1,7 @@
 import { AnyRegularMessageContent, proto } from "@adiwajshing/baileys";
 import Whatsapp from "../Whatsapp";
 import MessageButton from "./button";
+import MessageContact from "./contact";
 // import Whatsapp from "./Whatsapp";
 
 export type Button = proto.Message.ButtonsMessage.IButton;
@@ -10,6 +11,7 @@ export default class Message {
 	private client: Whatsapp;
 	private msTimeTyping: number;
 	private toPhones: string[];
+	private replyMessageID: string|null;
 	private skeletonPayloads: any[] = [];
 	private payloads: AnyRegularMessageContent[] = []
 
@@ -17,10 +19,10 @@ export default class Message {
 		this.client = client
 		this.msTimeTyping = msTimeTyping
 	}
-	
-	text(text: string) {
-		return this.next({
-			getPayload() { return {text} }
+
+	text(text: string): void {
+		this.makePayloadObject({
+			text
 		})
 	}
 
@@ -29,6 +31,26 @@ export default class Message {
 		if (text) btn.text(text)
 		if (footer) btn.footer(footer)
 		return this.next(btn)
+	}
+
+	contact(displayName: string = ''): MessageContact {
+		const msgContact = new MessageContact()
+		msgContact.setDisplayName(displayName)
+		return this.next(msgContact)
+	}
+
+	rawPayload(payloadMessageContent: object): void {
+		this.makePayloadObject(
+			payloadMessageContent
+		)
+	}
+
+	private makePayloadObject(object: object) {
+		this.next({
+			getPayload() {
+				return object
+			}
+		})
 	}
 
 	private next(classObject: any) {
@@ -52,29 +74,41 @@ export default class Message {
 		this.toPhones.push(jid)
 	}
 
-	send(jid?: string)  {
+	reply(messageID: string) {
+		this.replyMessageID = messageID
+	}
+
+	send(jid?: string, replyMessageID?: any) {
 		this.buildPayload()
+		if (replyMessageID === undefined) {
+			replyMessageID = this.replyMessageID ? this.replyMessageID : undefined
+		}
 		if (jid) {
-			this.sendMessageExec(jid)
+			this.sendMessageExec(jid, replyMessageID)
 		} else {
 			this.toPhones.map((jid) => {
-				this.sendMessageExec(jid)
+				this.sendMessageExec(jid, replyMessageID)
 			})
 		}
 	}
 
-	private sendMessageExec(jid: string) {
+	/**
+	 * Execute Sending Message
+	 * @param jid jid wa or phone
+	 * @returns response from wa
+	 */
+	private sendMessageExec(jid: string, replyMessageID?: string) {
 		console.log('sendTo:', jid);
-		
+
 		const res = this.payloads.map(async (payload) => {
-			const res = await this.client.sendMessageWithTyping(jid, payload, this.msTimeTyping)
+			const res = await this.client.sendMessageWithTyping(
+				jid, 
+				payload, 
+				replyMessageID, 
+				this.msTimeTyping)
 			console.log('RES WA', res);
 			return res
 		})
 		return res
 	}
-}
-
-export abstract class MessagePayload {
-	abstract getPayload(): any
 }
