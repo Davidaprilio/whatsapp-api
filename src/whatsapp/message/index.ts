@@ -82,7 +82,7 @@ export default class Message {
 		}) 
 	}
 
-	video(linkUrl: string, caption: string, asGIF: boolean) {
+	video(linkUrl: string, caption: string, asGIF: boolean = false) {
 		this.makePayloadObject({ 
 			video: linkUrl, 
 			caption,
@@ -98,13 +98,21 @@ export default class Message {
 			jpegThumbnail: jpegThumbnailBase64
 		})
 	}
-	audio(linkUrl: string, asVoiceNotes: boolean) {
+	audio(linkUrl: string, asVoiceNotes: boolean = false) {
 		this.makePayloadObject({ 
 			audio: { 
 				url: linkUrl 
 			}, 
 			mimetype: 'audio/mp4', 
 			ptt: asVoiceNotes,
+		})
+	}
+	voice(linkUrl: string) {
+		this.audio(linkUrl, true)
+	}
+	document(linkUrl: string) {
+		this.makePayloadObject({
+			url: linkUrl
 		})
 	}
 

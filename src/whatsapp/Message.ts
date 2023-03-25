@@ -8,7 +8,7 @@ const wa: Whatsapp = new Whatsapp('david-14A');
 
 (async () => {
     console.log('Starting Socket');
-    await wa.startSock()
+    await   
     console.log('Socket Started');
 
     wa.onConnected((info: any) => {
