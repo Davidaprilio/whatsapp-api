@@ -1,11 +1,10 @@
 import { proto } from "@adiwajshing/baileys";
 import { convertToJID } from "./helper";
 import Message from "./message/index"
+// import { OptionSection } from "./message/list";
 import Whatsapp from "./Whatsapp";
 
 const wa: Whatsapp = new Whatsapp('david-14A');
-
-const msg = new Message(wa);
 
 (async () => {
     console.log('Starting Socket');
@@ -17,15 +16,45 @@ const msg = new Message(wa);
 
         setTimeout(async () => {
 			const jid = convertToJID('085231028718')
+			// const jid = '120363024101903992@g.us' // group
 			const isRegister = await wa.isRegistWA(jid);
 			console.log('isRegister', isRegister);
 			if (isRegister) {
-				// msg.button('balbala', 'bakbaka')
+                const msg = new Message(wa);
+                // Make Text message
+				// msg.text('WA Tersambung')
+
+                // Make button message
+				// msg.button('Text message', 'Footer Message')
+				// 	.image('https://www.w3schools.com/tags/smiley.gif') // belum bisa
 				// 	.add('Button 1')
 				// 	.add('Button 2')
 				// 	.add('Button 3');
 
-				msg.text('WA Tersambung')
+                // Make List Message
+                // const listMsg = msg.list('Pesan List Option', 'Silahkan pilih opsi dibawah')
+                // listMsg.section('Section 1', (section: OptionSection) => {
+                //     section.option('option1', 'Option 1')
+                //     section.option('option2', 'Option 2', 'Option description')
+                // })
+                // listMsg.addSection('Section 2')
+                //     .addOption('option1', 'Option 1')
+                //     .addOption('option2', 'Option 2', 'Option description')
+
+                // Make Template Message
+                // msg.template('Pesan Template')
+                //     .urlButton('Portofolio', 'https://github.com/Davidaprilio')
+                //     .callButton('Hubungi Saya', '085231028718')
+                //     .replyButton('Salam Kenal', 'salam')
+
+                // Reaction
+                // msg.reaction({
+                //     remoteJid: jid,
+                //     fromMe: false,
+                //     id: 'E25C4455AEEA414DA7215BBD194A6F31'
+                // }, '👍')
+
+                msg.location(-7.655931370631908, 111.97003735003399)                
 
                 // msg.contact('david')
                 //     .add('David Aprilio', '085231028718', 'MSD')
@@ -55,16 +84,24 @@ const msg = new Message(wa);
             }
         );
 
+        // msg.reaction({
+        //     remoteJid: message.key.remoteJid,
+        //     fromMe: false,
+        //     id: message.key.id
+        // }, '👍')
+
         const messageText = message.message?.conversation || null
         if (typeof messageText === 'string' && messageText.startsWith('#')) {
             if(isFromGroup) {
-                if (messageText === '#info:group_id') {
+                if (messageText === '#info:id') {
+                    const msg = new Message(wa);
                     msg.text([
                         'ID group dari',
                         message.key.remoteJid
                     ].join('\n'))
 
-                    msg.send(message.key.remoteJid || '', message)
+                    msg.reply(message)
+                    // msg.send(message.key.remoteJid || '')
                 }
             }
         }

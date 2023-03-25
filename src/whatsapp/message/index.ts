@@ -2,6 +2,8 @@ import { AnyRegularMessageContent, proto } from "@adiwajshing/baileys";
 import Whatsapp from "../Whatsapp";
 import MessageButton from "./button";
 import MessageContact from "./contact";
+import MessageList from "./list";
+import MessageTemplateButton from "./template";
 // import Whatsapp from "./Whatsapp";
 
 export type Button = proto.Message.ButtonsMessage.IButton;
@@ -11,7 +13,6 @@ export default class Message {
 	private client: Whatsapp;
 	private msTimeTyping: number;
 	private toPhones: string[];
-	private replyMessageID: string|null;
 	private skeletonPayloads: any[] = [];
 	private payloads: AnyRegularMessageContent[] = []
 
@@ -26,9 +27,9 @@ export default class Message {
 		})
 	}
 
-	button(text: NullableString = null, footer: NullableString = null): MessageButton {
+	button(text: string, footer: NullableString = null): MessageButton {
 		const btn = new MessageButton()
-		if (text) btn.text(text)
+		btn.text(text)
 		if (footer) btn.footer(footer)
 		return this.next(btn)
 	}
@@ -39,6 +40,80 @@ export default class Message {
 		return this.next(msgContact)
 	}
 
+	template(text: string, footer?: string): MessageTemplateButton {
+		const templateBtn = new MessageTemplateButton()
+		templateBtn.text(text)
+		if (footer) templateBtn.footer(footer)
+		return this.next(templateBtn)
+	}
+
+	list(titleMsg: NullableString, textMsg: string, footerMsg: NullableString = null): MessageList {
+		const msgList = new MessageList()
+		msgList.text(textMsg)
+		if (footerMsg) msgList.footer(footerMsg)
+		if (titleMsg) msgList.title(titleMsg)
+		return this.next(msgList)
+	}
+	
+	/**
+	 * Send Reaction with emoji
+	 * 
+	 * @param messageKey message id or message Key
+	 * @param emotReaction use an empty string or null to remove the reaction
+	 */
+	reaction(messageKey: proto.IMessageKey, emotReaction: NullableString) {
+		this.makePayloadObject({
+			react: {
+				text: emotReaction === null ? '' : emotReaction,
+				key: messageKey
+			}
+		})
+	}
+
+	/**
+	 * Send Location with coordinates
+	 */
+	location(latitude: number, longitude: number) {
+		this.makePayloadObject({ 
+			location: { 
+				degreesLatitude: latitude, 
+				degreesLongitude: longitude 
+			} 
+		}) 
+	}
+
+	video(linkUrl: string, caption: string, asGIF: boolean) {
+		this.makePayloadObject({ 
+			video: linkUrl, 
+			caption,
+			gifPlayback: asGIF
+		})
+	}
+	image(linkUrl: string, caption: string, jpegThumbnailBase64?: string) {
+		this.makePayloadObject({
+			caption,
+			image: {
+				url: linkUrl
+			},
+			jpegThumbnail: jpegThumbnailBase64
+		})
+	}
+	audio(linkUrl: string, asVoiceNotes: boolean) {
+		this.makePayloadObject({ 
+			audio: { 
+				url: linkUrl 
+			}, 
+			mimetype: 'audio/mp4', 
+			ptt: asVoiceNotes,
+		})
+	}
+
+	/**
+	 * Make raw Baileys message payload
+	 * you can insert raw object MessageContext
+	 *  
+	 * @param payloadMessageContent 
+	 */
 	rawPayload(payloadMessageContent: object): void {
 		this.makePayloadObject(
 			payloadMessageContent
@@ -53,6 +128,11 @@ export default class Message {
 		})
 	}
 
+	/**
+	 * Push payloads object and return instance class 
+	 * @param classObject 
+	 * @returns 
+	 */
 	private next(classObject: any) {
 		this.skeletonPayloads.push(classObject)
 		return classObject
@@ -74,20 +154,24 @@ export default class Message {
 		this.toPhones.push(jid)
 	}
 
-	reply(messageID: string) {
-		this.replyMessageID = messageID
+	reply(message: proto.IWebMessageInfo) {
+		if (message.key.remoteJid === null || message.key.remoteJid === undefined) {
+			console.log(message.key)
+			throw new Error("Reply Message but JID Not Found");
+		}
+		this.buildPayload()
+		this.skeletonPayloads = []
+		this.sendMessageExec(message.key.remoteJid, message)
 	}
 
-	send(jid?: string, replyMessageID?: any) {
+	send(jid?: string) {
 		this.buildPayload()
-		if (replyMessageID === undefined) {
-			replyMessageID = this.replyMessageID ? this.replyMessageID : undefined
-		}
+		this.skeletonPayloads = []
 		if (jid) {
-			this.sendMessageExec(jid, replyMessageID)
+			this.sendMessageExec(jid)
 		} else {
 			this.toPhones.map((jid) => {
-				this.sendMessageExec(jid, replyMessageID)
+				this.sendMessageExec(jid)
 			})
 		}
 	}
@@ -97,14 +181,14 @@ export default class Message {
 	 * @param jid jid wa or phone
 	 * @returns response from wa
 	 */
-	private sendMessageExec(jid: string, replyMessageID?: string) {
+	private sendMessageExec(jid: string, replyMessage?: proto.IWebMessageInfo) {
 		console.log('sendTo:', jid);
 
 		const res = this.payloads.map(async (payload) => {
 			const res = await this.client.sendMessageWithTyping(
 				jid, 
 				payload, 
-				replyMessageID, 
+				replyMessage, 
 				this.msTimeTyping)
 			console.log('RES WA', res);
 			return res

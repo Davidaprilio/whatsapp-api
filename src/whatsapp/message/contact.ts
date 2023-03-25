@@ -1,4 +1,14 @@
-import { MessageContactPayload, MessagePayload } from "./messagePayload";
+import { MessagePayload } from "./messagePayload";
+
+export type vcard = {
+    vcard: string
+}
+export type MessageContactPayload = {
+    contacts: { 
+        displayName: string, 
+        contacts: vcard[] 
+    }
+}
 
 export default class MessageContact implements MessagePayload {
     private payload: MessageContactPayload = {

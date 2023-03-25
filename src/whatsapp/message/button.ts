@@ -1,12 +1,34 @@
-import { NullableString } from "./"
-import { MessagePayload, MessageButtonPayload } from "./messagePayload"
+import { Button, NullableString } from "./"
+import { MessagePayload } from "./messagePayload"
+
+export type MessageButtonPayload = {
+	image?: {
+		url: string
+	},
+	text?: string,
+	caption?: string,
+	footer?: string,
+	buttons: Button[],
+	headerType: number
+}
 
 export default class MessageButton implements MessagePayload {
 	private payload: MessageButtonPayload = {
 		text: "",
-		footer: null,
+		caption: undefined,
+		footer: undefined,
 		buttons: [],
 		headerType: 1
+	}
+
+	image(linkUrl: string) {
+		this.payload.image = {
+			url: linkUrl
+		}
+		this.payload.headerType = 4
+		this.payload.caption = this.payload.text
+		delete this.payload.text
+		return this
 	}
 
 	add(buttonText: string, buttonId: NullableString = null): this {
@@ -21,7 +43,11 @@ export default class MessageButton implements MessagePayload {
 	}
 
 	text(text: string) {
-		this.payload.text = text
+		if (this.payload.headerType === 4) {
+			this.payload.caption = text
+		} else {
+			this.payload.text = text
+		}
 	}
 
 	footer(text: string) {

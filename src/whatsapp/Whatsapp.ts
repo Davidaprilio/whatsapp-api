@@ -90,13 +90,18 @@ export default class Whatsapp {
         onScanQR: () => {},
         onIncomingMessage: () => {},
     }
+    private options = {
+        showQRCode: false
+    };
 
     constructor(
         client_id?: string | null,
         browser: string = "Chrome",
         storeSession: boolean = true,
+        showQRcode: boolean = true,
         silentLog: boolean = true
     ) {
+        this.options.showQRCode = showQRcode;
         this.silentLogging = silentLog;
         if (client_id === null || client_id === undefined) {
             client_id = "wac-" + randomUUID();
@@ -245,7 +250,8 @@ export default class Whatsapp {
     async createSock(
         host: string = "DevArl",
         browser: string = this.info.browser,
-        browserVerison: string = "22.22"
+        browserVerison: string = "22.22",
+        showQRcode: boolean = true,
     ) {
         // Cek Latest version dari Baileys
         const { version, isLatest } = await fetchLatestBaileysVersion();
@@ -265,7 +271,7 @@ export default class Whatsapp {
                 logger: this.logger,
                 // can use Windows, Ubuntu here too
                 browser: [host, browser, browserVerison] ?? Browsers.macOS('Desktop'),
-                printQRInTerminal: true,
+                printQRInTerminal: showQRcode,
                 auth: state,
                 syncFullHistory: true
             })
@@ -530,7 +536,7 @@ export default class Whatsapp {
     sendMessageWithTyping = async (
         jid: string,
         msg: AnyMessageContent,
-        replayMsgId?: string,
+        replayMsg?: proto.IWebMessageInfo,
         msTimeTyping?: number
     ) => {
         await this.sock.presenceSubscribe(jid);
@@ -540,7 +546,7 @@ export default class Whatsapp {
         await delay(msTimeTyping ?? 250); //ms
 
         await this.sock.sendPresenceUpdate("paused", jid);
-        const quotedMsg = replayMsgId ? { quoted: replayMsgId } : replayMsgId;
+        const quotedMsg = replayMsg ? { quoted: replayMsg } : replayMsg;
         try {
             console.log(quotedMsg);
             return await this.sock.sendMessage(jid, msg, quotedMsg);
