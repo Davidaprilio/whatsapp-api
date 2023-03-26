@@ -1,6 +1,5 @@
 import { proto } from "@adiwajshing/baileys";
 import { convertToJID } from "./helper";
-import Message from "./message/index"
 // import { OptionSection } from "./message/list";
 import Whatsapp from "./Whatsapp";
 
@@ -8,7 +7,7 @@ const wa: Whatsapp = new Whatsapp('david-14A');
 
 (async () => {
     console.log('Starting Socket');
-    await   
+    await wa.startSock()
     console.log('Socket Started');
 
     wa.onConnected((info: any) => {
@@ -20,7 +19,7 @@ const wa: Whatsapp = new Whatsapp('david-14A');
 			const isRegister = await wa.isRegistWA(jid);
 			console.log('isRegister', isRegister);
 			if (isRegister) {
-                const msg = new Message(wa);
+                const msg = wa.createMessage()
                 // Make Text message
 				// msg.text('WA Tersambung')
 
@@ -94,7 +93,7 @@ const wa: Whatsapp = new Whatsapp('david-14A');
         if (typeof messageText === 'string' && messageText.startsWith('#')) {
             if(isFromGroup) {
                 if (messageText === '#info:id') {
-                    const msg = new Message(wa);
+                    const msg = wa.createMessage();
                     msg.text([
                         'ID group dari',
                         message.key.remoteJid

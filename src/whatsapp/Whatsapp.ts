@@ -19,12 +19,14 @@ import makeWASocket, {
     MessageUpsertType,
     proto,
     isJidGroup,
-    PresenceData
+    PresenceData,
+    WASocket
 } from "@adiwajshing/baileys";
 
 import { convertToJID, log, jidToNumberPhone } from "./helper";
 
 import event from "./event";
+import Message from "./message/index";
 
 type ClientStatus =
     | "stoped"
@@ -52,6 +54,8 @@ interface CallableFunctions {
     onScanQR: Function,
     onConnected: Function,
     onIncomingMessage: Function,
+    onClickButtonMessage: Function,
+    onReactionMessage: Function,
 }
 
 interface ClientInfo {
@@ -71,7 +75,7 @@ interface ClientInfo {
 
 export default class Whatsapp {
     info: ClientInfo;
-    sock: any; // Socket dari makeWALegacySocket | makeWASocket
+    sock: WASocket; // Socket dari makeWALegacySocket | makeWASocket
 
     // private queueMessage: [];
     private status: string;
@@ -89,6 +93,8 @@ export default class Whatsapp {
         onStoped: () => {},
         onScanQR: () => {},
         onIncomingMessage: () => {},
+        onClickButtonMessage: () => {},
+        onReactionMessage: () => {},
     }
     private options = {
         showQRCode: false
@@ -210,11 +216,12 @@ export default class Whatsapp {
         // listen for when the auth credentials is updated
         this.sock.ev.on("creds.update", this.saveState);
 
-        this.sock.ev.on('presence-update', (json: any) => console.log(json))
+        this.sock.ev.on("messages.reaction", (arg: { key: proto.IMessageKey; reaction: proto.IReaction; }[]) => {
+            log("Reaction", arg)
+            this.emitCallback(
+                this.callableFunctions.onReactionMessage,
 
-        this.sock.ev.on("messages.reaction", async (a: any, b: any) => {
-            log("Reaction");
-            log(a, b);
+            )
         });
 
         // setInterval(() => {
@@ -276,6 +283,7 @@ export default class Whatsapp {
                 syncFullHistory: true
             })
             this.sock = conn;
+            console.log('Connection', conn)
         } catch (error) {
             console.log("Socket Error:", error);
         }
@@ -400,8 +408,8 @@ export default class Whatsapp {
         this.info.isAuth = true;
         this.info.connectedAt = new Date().toDateString();
 
-        this.info.jid = this.sock.user.id;
-        this.info.pushName = this.sock.user.name;
+        this.info.jid = this.sock.user?.id || null;
+        this.info.pushName = this.sock.user?.name || null;
 
         this.getProfilePicture(true);
         if (this.info.jid !== null) {
@@ -522,6 +530,12 @@ export default class Whatsapp {
     onIncomingMessage(callback: Function) {
         this.callableFunctions.onIncomingMessage = callback
     }
+    onClickButtonMessage(callback: Function) {
+        this.callableFunctions.onClickButtonMessage = callback
+    }
+    onReactionMessage(callback: Function) {
+        this.callableFunctions.onReactionMessage = callback
+    }
     // END: Register Callable Event Function
 
     // dummy
@@ -569,24 +583,18 @@ export default class Whatsapp {
     async isRegistWA(numberPhone: string): Promise<boolean> {
         const phone = convertToJID(numberPhone);
         let res = await this.sock.onWhatsApp(phone);
-        // check type data let res
-        if (Array.isArray(res)) {
-            res = res[0];
-        }
-        console.log(phone, res?.exists);
-        return res?.exists ?? false;
+        return res[0]?.exists ?? false;
     }
 
-    async statusContact(jid: string): Promise<string> {
+    async statusContact(jid: string) {
         const status = await this.sock.fetchStatus(jid);
-        console.log("status: " + status);
         return status;
     }
 
     async fetchProfilePicture(
         jid: string,
         highResolution = false
-    ): Promise<string> {
+    ): Promise<string|undefined> {
         if (highResolution) {
             // for high res picture
             return await this.sock.profilePictureUrl(jid, "image");
@@ -596,13 +604,17 @@ export default class Whatsapp {
         }
     }
 
+    createMessage() {
+        return new Message(this)
+    }
+
     /**
     | =====================================================
     | Action from Whatsapp Socket
     | =====================================================
     |
     */
-    async deleteMessage(jid: string, keyMessage: string) {
+    async deleteMessage(jid: string, keyMessage: proto.IMessageKey) {
         await this.sock.sendMessage(jid, { delete: keyMessage })
     }
 
@@ -635,7 +647,7 @@ export default class Whatsapp {
     // To get the display picture of some person/group
     async getProfilePicture(highResolution = false): Promise<string|null> {
         if (this.info.jid) {
-            this.info.ppURL = await this.fetchProfilePicture(this.info.jid, highResolution);
+            this.info.ppURL = await this.fetchProfilePicture(this.info.jid, highResolution) || null;
             event.emit('info.profile.photo', this.info.id, this.info.ppURL)
             return this.info.ppURL;
         }
