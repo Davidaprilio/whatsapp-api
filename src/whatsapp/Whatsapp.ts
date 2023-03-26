@@ -1,7 +1,9 @@
 import { Boom } from "@hapi/boom";
 import fs from "fs";
+import { writeFile } from 'fs/promises'
 import { randomUUID } from "crypto";
 import PinoLog from "../logger/pino";
+import mime from "mime-types";
 
 import makeWASocket, {
     AnyMessageContent,
@@ -9,9 +11,6 @@ import makeWASocket, {
     DisconnectReason,
     fetchLatestBaileysVersion,
     makeInMemoryStore,
-    // makeWALegacySocket,
-    // useSingleFileLegacyAuthState,
-    // useSingleFileAuthState,
     ConnectionState,
     Browsers,
     useMultiFileAuthState,
@@ -20,13 +19,24 @@ import makeWASocket, {
     proto,
     isJidGroup,
     PresenceData,
-    WASocket
+    WASocket,
+    downloadMediaMessage
 } from "@adiwajshing/baileys";
 
 import { convertToJID, log, jidToNumberPhone } from "./helper";
 
 import event from "./event";
 import Message from "./message/index";
+import { Logger } from "pino";
+
+export enum Client {
+    Chrome = 'Chrome',
+    Firefox = 'Firefox',
+    Safari = 'Safari',
+    Edge = 'Edge',
+    Opera = 'Opera',
+    Desktop = 'Desktop'
+}
 
 type ClientStatus =
     | "stoped"
@@ -56,10 +66,19 @@ interface CallableFunctions {
     onIncomingMessage: Function,
     onClickButtonMessage: Function,
     onReactionMessage: Function,
+    onStopedSession: Function,
+}
+
+interface WhatsappOption {
+    browser: string | Client | [string,string,string],
+    storeSession: boolean,
+    showQRcode: boolean,
+    silentLog: boolean
 }
 
 interface ClientInfo {
     id: string;
+    hostname: string | null;
     authPath: string;
     status: ClientStatus;
     isAuth: boolean; // Cek sudah terauthentikasi apa belum
@@ -68,7 +87,7 @@ interface ClientInfo {
     pushName: string | null; // name Whatsapp
     phoneNumber: string | null; // phone number Whatsapp
     jid: string | null; // id number from Whatsapp
-    browser: string;
+    browser: [string, string, string]; // [host, browser, version]
     connectedAt: string | null;
     more?: any;
 }
@@ -82,7 +101,7 @@ export default class Whatsapp {
     private saveState: any;
     private connectionLostCount: number = 0; // jumlah koneksi timeout 
     private store: any;
-    private logger: any;
+    private logger: Logger;
     private silentLogging: boolean;
     private isStopedByUser: boolean = false;
     private attemptQRcode: number = 0;
@@ -95,33 +114,51 @@ export default class Whatsapp {
         onIncomingMessage: () => {},
         onClickButtonMessage: () => {},
         onReactionMessage: () => {},
+        onStopedSession: () => {},
     }
     private options = {
         showQRCode: false
     };
 
     constructor(
-        client_id?: string | null,
-        browser: string = "Chrome",
-        storeSession: boolean = true,
-        showQRcode: boolean = true,
-        silentLog: boolean = true
+        client_id?: string | null, 
+        hostname: string | null = null,
+        moreOptions?: Partial<WhatsappOption>
     ) {
-        this.options.showQRCode = showQRcode;
-        this.silentLogging = silentLog;
+        const defaultOptions: WhatsappOption = {
+            browser: Client.Chrome,
+            showQRcode: false,
+            silentLog: true,
+            storeSession: true,
+        } 
+        const options: WhatsappOption = { ...defaultOptions, ...moreOptions }
+
+        this.options.showQRCode = options.showQRcode
+        this.silentLogging = options.silentLog;
         if (client_id === null || client_id === undefined) {
             client_id = "wac-" + randomUUID();
         }
         const pathAuth = `.session/auth-state/${client_id}`;
 
+        const browserSocket = Array.isArray(options.browser) ? options.browser : Browsers.appropriate(options.browser);
+        // create name host
+        if (hostname) {
+            if (browserSocket[1] in Client) {
+                browserSocket[0] = hostname
+            } else {
+                browserSocket[0] = `${browserSocket[1]}(${hostname})`
+            }
+        }
+
         this.info = {
             id: client_id,
+            hostname,
             authPath: pathAuth,
             ppURL: null,
             pushName: null,
             phoneNumber: null,
             jid: null,
-            browser, // Chrome|Firefox|Safari|Custom name
+            browser: browserSocket,
             connectedAt: null,
             status: "disconnected",
             isAuth: false,
@@ -132,7 +169,7 @@ export default class Whatsapp {
         this.logger = PinoLog.child({});
         this.logger.level = this.silentLogging ? "silent" : "debug";
 
-        if (storeSession) {
+        if (options.storeSession) {
             // buat path untuk simpan auth session
             if (!fs.existsSync(pathAuth)) fs.mkdirSync(pathAuth, { recursive: true });
 
@@ -151,11 +188,11 @@ export default class Whatsapp {
 
         if (this.status == "active") {
             console.log(`Client ${this.info.id} already connected`);
-            return "Device alredy connected";
+            return this.sock;
         }
 
         // buat sock dari client yang diberikan
-        await this.createSock(this.info.id);
+        await this.createSock(this.info.browser);
 
         this.store.bind(this.sock.ev);
 
@@ -172,14 +209,11 @@ export default class Whatsapp {
                     const phone = jidToNumberPhone(jid || '');
                     
                     if (key.fromMe) {
-                        // Outgoing Messages
-                        console.log('Outgoing Message', msg);
                         event.emit("message.out", this.info.id, {
                             messageID,
                             timestamp: messageTimestamp,
                         });
                     } else {
-                        console.log('Incoming Message', msg);
                         const isGroup = isJidGroup(jid || undefined) || false;
                         this.incomingMessage(msg, isGroup, key.fromMe || false, jid || null, messageID || null)
                         // Incomming Messages
@@ -255,35 +289,28 @@ export default class Whatsapp {
      * @returns Object
      */
     async createSock(
-        host: string = "DevArl",
-        browser: string = this.info.browser,
-        browserVerison: string = "22.22",
+        browser: [string, string, string],
         showQRcode: boolean = true,
     ) {
-        // Cek Latest version dari Baileys
         const { version, isLatest } = await fetchLatestBaileysVersion();
-
-        log(`====================== Whatsapp API ======================`);
-        log(` Using WA v${version.join(".")} | isLatest: ${isLatest} | cid: ${host}`);
-        log("==========================================================");
+        console.log(`====================== Whatsapp API ======================`);
+        console.log(` Using WA v${version.join(".")} | isLatest: ${isLatest} | cid: ${this.info.id}`);
+        console.log("==========================================================");
 
         // memulihkan session sebelumnya jika dulu disimpan
         const { state, saveCreds } = await useMultiFileAuthState(this.info.authPath);
-        // (this.info.authPath);
         this.saveState = saveCreds;
 
         try {
             const conn = makeWASocket({
                 version,
                 logger: this.logger,
-                // can use Windows, Ubuntu here too
-                browser: [host, browser, browserVerison] ?? Browsers.macOS('Desktop'),
+                browser,
                 printQRInTerminal: showQRcode,
                 auth: state,
                 syncFullHistory: true
             })
             this.sock = conn;
-            console.log('Connection', conn)
         } catch (error) {
             console.log("Socket Error:", error);
         }
@@ -291,31 +318,30 @@ export default class Whatsapp {
     }
 
     /**
-   * Handle Connection Update
-   *
-   */
+     * Handle Connection Update
+     *
+     */
     private async connectionUpdate(update: ConnectionState): Promise<void> {
-        const { connection, lastDisconnect, qr } = update;
-        // log("connection update: ", connection, lastDisconnect, update);
+        const { 
+            connection, 
+            lastDisconnect, 
+            qr,
+            receivedPendingNotifications,
+        } = update;
         this.logger.info("connection update: ", connection, lastDisconnect, update);
 
         // Jika status device sudah di-Stop oleh user (bukan system reconnect), 
         // maka tidak perlu di reconnect lagi biarkan mati
         if (this.isStopedByUser) {
-            log(`Device ${this.info.id} Stoped by user (Not Reconnect)`);
+            this.logger.info(`Device ${this.info.id} Stoped by user (Safe Session)`);
             this.info.status = "stoped";
+            this.emitCallback(this.callableFunctions.onStopedSession)
         }
         // Reconnect jika connection close (bukan dari user)
         else if (connection === "close") {
             this.info.status = "connecting";
             if (lastDisconnect) {
                 const err = (lastDisconnect.error as Boom).output;
-
-                log("Connection Close:", err?.payload ?? err);
-                console.log({
-                    errPayload: err,
-                });
-    
                 // Connection Gone (hilang/rusak)
                 if (err.statusCode === 410 || err?.payload.message === "Stream Errored") {
                     console.log("Stream Errored", err.payload);
@@ -335,28 +361,22 @@ export default class Whatsapp {
                 }
                 // Request Time-out (no-internet)
                 else if (err.statusCode === DisconnectReason.timedOut) {         
-                    if(this.connectionLostCount > 10) {
-                        log('NO INTERNET CONNECTION');
+                    if(this.connectionLostCount > 20) {
+                        this.logger.warn('NO INTERNET CONNECTION');
                         this.stopSock()
                     } else {
                         this.connectionLostCount++
                         this.startSock();
                     }
-                }// tapi bukan gara-gara Logout
-                else if (err.statusCode !== DisconnectReason.loggedOut) {
+                }
+                // Masalah lainya
+                else {
                     const msg = lastDisconnect.error?.message || 'No Error';
-                    PinoLog.error(msg)
-                    // Mode Device Mismatch (yang scan salah mode)
-                    if (err?.statusCode === 411) {
-                        this.startSock();
-                    } else {
-                        console.log('SOCKET +++++++++++++++++++++++++++++')
-                        // Memulai Socket
-                        this.startSock();
-                    }
+                    this.logger.error(msg + ' SOCKET CLOSED +++++++++++++++++++++++++++++')
+                    this.startSock();
                 }
             } else {
-                console.log('UNHANDLE CONNECTION CLOSE ===============================');
+                this.logger.error(update, 'UNHANDLE CONNECTION CLOSE')
             }
         }
         // Client Connected Horeee !!!
@@ -368,9 +388,12 @@ export default class Whatsapp {
             // the current QR code
             this.socketScanQR(qr)
         }
+        else if (receivedPendingNotifications !== undefined) {
+            /** has the device received all pending notifications while it was offline */
+        }
         // Status Tidak dikenali
         else {
-            log("Open {else} - Status Tidak dikenali", update);
+            this.logger.info(`Open {else} ${connection} - Status Tidak dikenali`, update);
             if (connection == "connecting") {
                 this.info.status = "connecting";
             }
@@ -380,11 +403,10 @@ export default class Whatsapp {
         if (["open", "connecting", "close"].includes(connection)) {
             // check current connection is equal old connection, if equal not emit
             if (connection === this.info.status) {
-                console.log("Emit closed but it's still the same connection");
+                this.logger.info("Emit closed but it's still the same connection");
                 return;
-            } else {
-                console.log("Emit connection.update");
             }
+
             if (connection === 'connecting') {
                 this.socketConnecting()
             }
@@ -401,7 +423,7 @@ export default class Whatsapp {
 
     // Event Handler
     private socketConnected() {
-        log("Connection Open");
+        this.logger.info("Connection Open");
         this.attemptQRcode = 0;
         this.setStatusDeviceActive();
         this.info.qrCode = null;
@@ -480,6 +502,10 @@ export default class Whatsapp {
         this.setStatusDeviceDeactive();
     }
 
+    async logout() {
+        await this.sock.logout()
+    }
+
     /**
      * Handle Remove Session Path
      */
@@ -535,6 +561,9 @@ export default class Whatsapp {
     }
     onReactionMessage(callback: Function) {
         this.callableFunctions.onReactionMessage = callback
+    }
+    onStopedSession(callback: Function) {
+        this.callableFunctions.onStopedSession = callback
     }
     // END: Register Callable Event Function
 
@@ -706,6 +735,41 @@ export default class Whatsapp {
     // leave from group
     async groupLeave(idGroup: string) {
         return await this.sock.groupLeave(idGroup) // (will throw error if it fails)
+    }
+
+    async downloadFileMessage(msg: proto.IWebMessageInfo, path: string = '.') {
+        if(!msg.message) return null
+        const { audioMessage, imageMessage, documentMessage } = msg.message
+        let extension: string;
+        if(audioMessage) { 
+            extension = mime.extension(audioMessage.mimetype || '') 
+                || (audioMessage.ptt ? 'ogg' : 'mp3')
+        } else if(imageMessage) {
+            extension = mime.extension(imageMessage.mimetype || '') || 'jpeg'
+        } else if(documentMessage) {
+            extension = mime.extension(documentMessage.mimetype || '') || documentMessage.mimetype || 'unknown'
+        } else {
+            return null
+        }
+
+        const buffer = await downloadMediaMessage(
+            msg,
+            'buffer',
+            {},
+            { 
+                logger: this.logger,
+                // pass this so that baileys can request a reupload of media
+                // that has been deleted
+                reuploadRequest: this.sock.updateMediaMessage
+            }
+        )
+        // save to file
+        const filename = msg.key.id
+        path = path.endsWith('/') ? path.slice(0,-1) : path
+        path += `/${filename}.${extension}`
+
+        await writeFile(path, buffer)
+        return path
     }
 }
 

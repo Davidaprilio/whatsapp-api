@@ -1,6 +1,7 @@
-import Whatsapp from "./Whatsapp";
-
-const wa: Whatsapp = new Whatsapp('david-14A');
+import Whatsapp, { Client } from "../Whatsapp";
+const wa: Whatsapp = new Whatsapp('david-14A', null, {
+    browser: Client.Opera
+});
 
 (async () => {
     console.log('Starting Socket');
@@ -8,7 +9,7 @@ const wa: Whatsapp = new Whatsapp('david-14A');
     console.log('Socket Started');
 
     wa.onConnected((info: any) => {
-        console.log('WES KONEK =======================', info);
+        console.log('Connected =======================', info);
 
         setTimeout(() => {
             wa.stopSock()
@@ -16,11 +17,11 @@ const wa: Whatsapp = new Whatsapp('david-14A');
     })
     
     wa.onDisconnected((reasonInfo: object) => {
-        console.log('Koneksi Terputus', reasonInfo);
+        console.log('Disconnected', reasonInfo);
     })
 
     wa.onConnecting(() => {
-        console.log('Menyambungkan Ulang');
+        console.log('Reconecting');
         
     })
 })()

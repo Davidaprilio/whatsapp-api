@@ -1,4 +1,4 @@
-import { Button, NullableString } from "./"
+import { Button, NullableString } from "."
 import { MessagePayload } from "./messagePayload"
 
 export type MessageButtonPayload = {

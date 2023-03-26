@@ -1,9 +1,11 @@
 import { proto } from "@adiwajshing/baileys";
-import { convertToJID } from "./helper";
+import { convertToJID } from "../helper";
 // import { OptionSection } from "./message/list";
-import Whatsapp from "./Whatsapp";
+import Whatsapp, { Client } from "../Whatsapp";
 
-const wa: Whatsapp = new Whatsapp('david-14A');
+const wa: Whatsapp = new Whatsapp('david-14A', null, {
+    browser: Client.Opera
+});
 
 (async () => {
     console.log('Starting Socket');
@@ -19,7 +21,7 @@ const wa: Whatsapp = new Whatsapp('david-14A');
 			const isRegister = await wa.isRegistWA(jid);
 			console.log('isRegister', isRegister);
 			if (isRegister) {
-                const msg = wa.createMessage()
+                // const msg = wa.createMessage()
                 // Make Text message
 				// msg.text('WA Tersambung')
 
@@ -53,13 +55,13 @@ const wa: Whatsapp = new Whatsapp('david-14A');
                 //     id: 'E25C4455AEEA414DA7215BBD194A6F31'
                 // }, '👍')
 
-                msg.location(-7.655931370631908, 111.97003735003399)                
+                // msg.location(-7.655931370631908, 111.97003735003399)                
 
                 // msg.contact('david')
                 //     .add('David Aprilio', '085231028718', 'MSD')
                 //     .add('Alwi Bayu P', '026156281222', 'STAN (Kediri)')
 	
-				msg.send(jid)
+				// msg.send(jid)
 
                 setTimeout(() => {
                     process.exit(1)
@@ -73,6 +75,9 @@ const wa: Whatsapp = new Whatsapp('david-14A');
     })
 
     wa.onConnecting(() => {
+        console.log('Menyambungkan Ulang');
+    })
+    wa.onStopedSession(() => {
         console.log('Menyambungkan Ulang');
     })
 
